@@ -11,16 +11,16 @@ import "hardhat/console.sol";
 contract NFTWithRoyalties is ERC721URIStorage, ERC2981PerTokenRoyalties {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
-    address contractAddress;
+    address public contractAddress;
 
     event TokenCreated(uint256 tokenId);
 
-    // can be made to support multi marketplace
+    // TODO: can be made to support multi marketplace
     constructor(address marketplaceAddress) ERC721("MetaRoyalty", "ROYALTY") {
         contractAddress = marketplaceAddress;
     }
 
-    // address marketplaces[]
+    // TODO: add multiple marketplaces
     // function addMarketPlace(address marketplaceAddr) {
     //     marketplaces.push(marketplaceAddr)
     // }

@@ -8,18 +8,16 @@ import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 // import "./royalty/ERC2981Base.sol";
 import "./royalty/ERC2981PerTokenRoyalties.sol";
 
-import "hardhat/console.sol";
-
-contract NFTMarket is ReentrancyGuard {
+contract NFTMarketplace is ReentrancyGuard {
     using Counters for Counters.Counter;
     using ERC165Checker for address;
 
     Counters.Counter private _itemIds;
     Counters.Counter private _itemsSold;
 
-    address payable owner;
-    uint256 listingPrice = 0.025 ether;
-    bytes4 InterfaceId_IERC2981Royalties = type(IERC2981Royalties).interfaceId;
+    address payable public owner;
+    uint256 public listingPrice = 0.025 ether;
+    bytes4 public constant _INTERFACE_ID_ROYALTIES_EIP2981 = type(IERC2981Royalties).interfaceId;
 
     constructor() {
         owner = payable(msg.sender);
@@ -51,6 +49,17 @@ contract NFTMarket is ReentrancyGuard {
         bool sold
     );
 
+    event MarketItemSold(
+        uint256 indexed itemId,
+        address indexed nftContract,
+        uint256 indexed tokenId,
+        address seller,
+        address owner,
+        uint256 price,
+        uint256 royaltyAmount,
+        address royaltyRecipient
+    );
+
     /* Returns the listing price of the contract */
     function getListingPrice() public view returns (uint256) {
         return listingPrice;
@@ -71,11 +80,12 @@ contract NFTMarket is ReentrancyGuard {
         address royaltyRecipient;
         uint256 royaltyAmount = 0;
 
-        // check if it supports royalty feature
-        if (nftContract.supportsInterface(InterfaceId_IERC2981Royalties)) {
+        // check if it supports EIP2981 Royalty standard
+        if (nftContract.supportsInterface(_INTERFACE_ID_ROYALTIES_EIP2981)) {
             (royaltyRecipient, royaltyAmount) = ERC2981PerTokenRoyalties(nftContract).royaltyInfo(tokenId, price);
         }
-
+        // the reason to include royalty information into the contract MarketItem is that
+        // we need to show this information in front-end so the user can know associated royalty info
         idToMarketItem[itemId] = MarketItem(
             itemId,
             nftContract,
@@ -103,63 +113,45 @@ contract NFTMarket is ReentrancyGuard {
         );
     }
 
-    // function royaltyInfo(
-    //   address nftContract,
-    //   uint256 itemId
-    //   ) public view returns (address recipient, uint256 royaltyAmount) {
-    //   uint price = idToMarketItem[itemId].price;
-    //   uint tokenId = idToMarketItem[itemId].tokenId;
-
-    //   (recipient, royaltyAmount) = ERC2981PerTokenRoyalties(nftContract).royaltyInfo(tokenId, price);
-    // }
     /* Creates the sale of a marketplace item */
     /* Transfers ownership of the item, as well as funds between parties */
     function createMarketSale(address nftContract, uint256 itemId) public payable nonReentrant {
         uint256 price = idToMarketItem[itemId].price;
         uint256 tokenId = idToMarketItem[itemId].tokenId;
-        console.log("tokenId", tokenId);
         require(msg.value == price, "Please submit the asking price in order to complete the purchase");
 
         // if no royalty to be paid, initially it is set to zero
         uint256 royaltyAmount = 0;
-        // bytes4 InterfaceId_IERC2981Royalties = type(IERC2981Royalties).interfaceId;
-        // check if the nft contract has support for EIP2981
+        address royaltyRecipient = address(0);
+        // check if the nft contract has support for EIP 2981 Royalty Standard
         // this means the royalty has to be paid
-        if (nftContract.supportsInterface(InterfaceId_IERC2981Royalties)) {
-            console.log("inside");
-            address recipient;
-
-            (recipient, royaltyAmount) = ERC2981PerTokenRoyalties(nftContract).royaltyInfo(tokenId, price);
-            console.log("recipient", recipient);
-            console.log("amount", royaltyAmount);
-            // pay the royalty
-            // query the balance before
-            uint256 balanceBefore = recipient.balance;
-            console.log("treasury balance before", balanceBefore);
-
-            payable(recipient).transfer(royaltyAmount);
-
-            // query the balance after
-            uint256 balanceAfter = recipient.balance;
-            console.log("treasury balance after ", balanceAfter);
-
-            console.log("diff", balanceAfter - balanceBefore);
+        if (nftContract.supportsInterface(_INTERFACE_ID_ROYALTIES_EIP2981)) {
+            (royaltyRecipient, royaltyAmount) = ERC2981PerTokenRoyalties(nftContract).royaltyInfo(tokenId, price);
         }
-        // seller balance before payment
-        uint256 sellerBalanceBefore = idToMarketItem[itemId].seller.balance;
-        console.log("seller balance before", sellerBalanceBefore);
-        idToMarketItem[itemId].seller.transfer(msg.value - royaltyAmount);
-        // seller balance after payment
-        uint256 sellerBalanceAfter = idToMarketItem[itemId].seller.balance;
-        console.log("seller balance after ", sellerBalanceAfter);
-        // seller balance diff
-        console.log("seller balance diff", sellerBalanceAfter - sellerBalanceBefore);
 
-        IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
         idToMarketItem[itemId].owner = payable(msg.sender);
         idToMarketItem[itemId].sold = true;
+        // transfer the royalty to the royalty recipient
+        payable(royaltyRecipient).transfer(royaltyAmount);
+        // transfer the (item price - royalty amount) to the seller
+        idToMarketItem[itemId].seller.transfer(msg.value - royaltyAmount);
+
+        IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
+
         _itemsSold.increment();
         payable(owner).transfer(listingPrice);
+
+        emit MarketItemSold(
+            itemId,
+            nftContract,
+            tokenId,
+            // TODO: do I have to create local memory variable to store Storage variable first?
+            idToMarketItem[itemId].seller,
+            idToMarketItem[itemId].owner,
+            price,
+            royaltyAmount,
+            royaltyRecipient
+        );
     }
 
     /* Returns all unsold market items */
