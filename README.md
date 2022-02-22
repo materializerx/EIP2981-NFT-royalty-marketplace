@@ -1,17 +1,6 @@
-# Solidity Template
+# EIP2981 NFT Marketplace with Royalty payment
 
-My favorite setup for writing Solidity smart contracts.
-
-- [Hardhat](https://github.com/nomiclabs/hardhat): compile and run the smart contracts on a local development network
-- [TypeChain](https://github.com/ethereum-ts/TypeChain): generate TypeScript types for smart contracts
-- [Ethers](https://github.com/ethers-io/ethers.js/): renowned Ethereum library and wallet implementation
-- [Waffle](https://github.com/EthWorks/Waffle): tooling for writing comprehensive smart contract tests
-- [Solhint](https://github.com/protofire/solhint): linter
-- [Solcover](https://github.com/sc-forks/solidity-coverage): code coverage
-- [Prettier Plugin Solidity](https://github.com/prettier-solidity/prettier-plugin-solidity): code formatter
-
-This is a GitHub template, which means you can reuse it as many times as you want. You can do that by clicking the "Use this
-template" button at the top of the page.
+This is an NFT marketplace smart contract which showcases how to create NFT with royalty [EIP2981 Royalty Standard](https://eips.ethereum.org/EIPS/eip-2981) and the marketplace on which these NFTs can be traded. On each NFT sale on marketplace, the royalties are transferred to the royalty recipient.
 
 ## Usage
 
@@ -97,18 +86,3 @@ Deploy the contracts to Hardhat Network:
 ```sh
 $ yarn deploy --greeting "Bonjour, le monde!"
 ```
-
-## Syntax Highlighting
-
-If you use VSCode, you can enjoy syntax highlighting for your Solidity code via the
-[vscode-solidity](https://github.com/juanfranblanco/vscode-solidity) extension. The recommended approach to set the
-compiler version is to add the following fields to your VSCode user settings:
-
-```json
-{
-  "solidity.compileUsingRemoteVersion": "v0.8.4+commit.c7e474f2",
-  "solidity.defaultCompiler": "remote"
-}
-```
-
-Where of course `v0.8.4+commit.c7e474f2` can be replaced with any other version.
